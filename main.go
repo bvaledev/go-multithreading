@@ -26,7 +26,12 @@ func request(ch chan<- []byte, url string) {
 }
 
 func main() {
-	cep := "22470-050"
+	fmt.Printf("Informe o seu cep (ex: 22470-050): ")
+	var cep string
+	_, err := fmt.Scanln(&cep)
+	if err != nil {
+		panic(err)
+	}
 
 	chApiCep := make(chan []byte)
 	chViaCep := make(chan []byte)
