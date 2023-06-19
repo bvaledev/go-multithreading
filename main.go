@@ -1,13 +1,37 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 )
 
-func request(ch chan<- []byte, url string) {
+type ApiCep struct {
+	Code       string `json:"code"`
+	State      string `json:"state"`
+	City       string `json:"city"`
+	District   string `json:"district"`
+	Address    string `json:"address"`
+	Status     int    `json:"status"`
+	Ok         bool   `json:"ok"`
+	StatusText string `json:"statusText"`
+}
+
+type ViaCep struct {
+	Cep         string `json:"cep"`
+	Logradouro  string `json:"logradouro"`
+	Complemento string `json:"complemento"`
+	Bairro      string `json:"bairro"`
+	Localidade  string `json:"localidade"`
+	UF          string `json:"uf"`
+	IBGE        string `json:"ibge"`
+	GIA         string `json:"gia"`
+	DDD         string `json:"ddd"`
+	SIAFI       string `json:"siafi"`
+}
+
+func request[T ApiCep | ViaCep](ch chan<- T, url string) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		panic(err)
@@ -18,11 +42,10 @@ func request(ch chan<- []byte, url string) {
 	}
 	defer res.Body.Close()
 
-	resBody, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		panic(err)
-	}
-	ch <- resBody
+	var generic T
+	json.NewDecoder(res.Body).Decode(&generic)
+
+	ch <- generic
 }
 
 func main() {
@@ -33,17 +56,17 @@ func main() {
 		panic(err)
 	}
 
-	chApiCep := make(chan []byte)
-	chViaCep := make(chan []byte)
+	chApiCep := make(chan ApiCep)
+	chViaCep := make(chan ViaCep)
 
 	go request(chApiCep, fmt.Sprintf("https://cdn.apicep.com/file/apicep/%s.json", cep))
 	go request(chViaCep, fmt.Sprintf("http://viacep.com.br/ws/%s/json/", cep))
 
 	select {
 	case cep := <-chApiCep:
-		fmt.Printf("%s\n", cep)
+		fmt.Printf("ApiCep: %+v\n", cep)
 	case cep := <-chViaCep:
-		fmt.Printf("%s\n", cep)
+		fmt.Printf("ViaCep: %+v\n", cep)
 	case <-time.After(time.Second):
 		println("Timeout")
 	}
